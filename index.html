@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0}</style>
+<title>Jellyfish</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one calm column, like a tide chart. Deadline strip first, then filterable cards that open in place. */
+:root {
+  --bg: #EAF2F5;
+  --surface: #FFFFFF;
+  --fg: #0D2434;
+  --muted: #546C7B;
+  --line: #D2E0E7;
+  --accent: #C2336B;
+  --accent-soft: #F8E3EC;
+  --on-accent: #FFFFFF;
+  --sea: #0A7B82;
+  --sea-soft: #D8EFF0;
+  --amber: #8A5A00;
+  --amber-soft: #FBEBC9;
+  --violet: #4F46A8;
+  --violet-soft: #E4E2F7;
+  --grey-soft: #E3E9ED;
+  --f-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #07151D; --surface: #0E2230; --fg: #E3EEF3; --muted: #8DA7B5; --line: #1D3545;
+    --accent: #FF86B0; --accent-soft: #3A1A2B; --on-accent: #2A0B1A;
+    --sea: #52CBD1; --sea-soft: #0F3438; --amber: #F2C265; --amber-soft: #3B2C0B;
+    --violet: #AEA8F5; --violet-soft: #25234A; --grey-soft: #1A2F3D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #07151D; --surface: #0E2230; --fg: #E3EEF3; --muted: #8DA7B5; --line: #1D3545;
+  --accent: #FF86B0; --accent-soft: #3A1A2B; --on-accent: #2A0B1A;
+  --sea: #52CBD1; --sea-soft: #0F3438; --amber: #F2C265; --amber-soft: #3B2C0B;
+  --violet: #AEA8F5; --violet-soft: #25234A; --grey-soft: #1A2F3D;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-block: 20px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand svg { width: 44px; height: 52px; flex: none; overflow: visible; }
+.brand h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.tag { color: var(--muted); margin: 4px 0 0; max-width: 46ch; }
+.bell { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.tent { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; }
+@media (prefers-reduced-motion: no-preference) {
+  .tent { animation: sway 4s ease-in-out infinite alternate; transform-origin: 22px 24px; }
+  .tent:nth-child(2n) { animation-delay: -1.5s; }
+  @keyframes sway { from { transform: skewX(-4deg); } to { transform: skewX(4deg); } }
+}
+
+/* next deadline strip */
+.next { background: var(--fg); color: var(--bg); border-radius: 14px; padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+.next .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.next .v { font-family: var(--f-display); font-weight: 600; font-size: 18px; }
+.next .w { font-family: var(--f-mono); font-size: 13px; }
+
+/* filters */
+.filters { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.search { flex: 1 1 200px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.sel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; max-width: 100%; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.lab { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* fit panel */
+.fit { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.fit > summary { cursor: pointer; padding: 12px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.fit > summary::-webkit-details-marker { display: none; }
+.fit > summary span { color: var(--muted); font-weight: 400; }
+.fit-body { padding: 4px 16px 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.fit-body label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fit-body .chk { flex-direction: row; align-items: center; gap: 8px; }
+.fit-note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; margin: 0; }
+.cg-out { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cg-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 2px 12px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.cg-row .v { font-family: var(--f-mono); font-size: 16px; font-weight: 500; }
+.cg-row .t { grid-column: 2; color: var(--muted); font-size: 13.5px; }
+.cg-hint { color: var(--muted); margin: 0; }
+.cg-hint.err { color: var(--accent); }
+@media (max-width: 420px) { .cg-row { grid-template-columns: 1fr; } .cg-row .t { grid-column: 1; } }
+
+/* list */
+.count { color: var(--muted); font-size: 13px; }
+.list { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card[data-st="closed"] { opacity: .82; }
+.top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.top h3 { font-size: 19px; font-weight: 600; line-height: 1.2; }
+.where { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.save { flex: none; background: none; border: 1px solid var(--line); border-radius: 10px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; color: var(--muted); }
+.save[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.save svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+.save[aria-pressed="true"] svg { fill: currentColor; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.p-open { background: var(--sea-soft); color: var(--sea); }
+.p-soon { background: var(--amber-soft); color: var(--amber); }
+.p-upcoming { background: var(--violet-soft); color: var(--violet); }
+.p-varies { background: var(--violet-soft); color: var(--violet); }
+.p-closed { background: var(--grey-soft); color: var(--muted); }
+.p-plain { background: var(--grey-soft); color: var(--fg); font-weight: 500; }
+.f-good { background: var(--sea-soft); color: var(--sea); }
+.f-check { background: var(--amber-soft); color: var(--amber); }
+.f-no { background: var(--grey-soft); color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: baseline; border-top: 1px dashed var(--line); padding-top: 10px; }
+.dl .date { font-family: var(--f-mono); font-size: 13px; min-width: 0; }
+.dl .left { grid-column: 2; font-weight: 600; }
+.dl .left.hot { color: var(--accent); }
+.dl .nxt { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
+.fitline { font-size: 13.5px; color: var(--muted); margin: 0; }
+.ielts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; align-items: baseline; }
+.ielts span:last-child { font-size: 14px; }
+.sites { display: flex; flex-wrap: wrap; gap: 8px; }
+.lnk { color: var(--accent); font-weight: 600; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.sites .lnk { border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; text-decoration: none; background: var(--bg); }
+details.more > summary { cursor: pointer; font-weight: 600; color: var(--accent); list-style: none; padding: 2px 0; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::after { content: " +"; }
+details.more[open] > summary::after { content: " \2212"; }
+.more-body { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
+.more-body h4 { margin: 0 0 4px; font-family: var(--f-mono); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.more-body p { margin: 0; }
+.more-body ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.go { align-self: flex-start; background: var(--accent); color: var(--on-accent); text-decoration: none; font-weight: 600; padding: 9px 14px; border-radius: 10px; }
+.src { font-size: 12.5px; color: var(--muted); }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 24px; text-align: center; color: var(--muted); }
+.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 420px) { .top h3 { font-size: 18px; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 44 52" aria-hidden="true">
+        <path class="bell" d="M4 24C4 11 12 3 22 3s18 8 18 21c0 1-1 2-2 2-3 0-3-3-6-3s-3 3-6 3-3-3-6-3-3 3-6 3-3-3-6-3-3 3-6 3c-1 0-2-1-2-2z"/>
+        <path class="tent" d="M12 26c-2 6 2 8 0 14s-2 6-1 9"/>
+        <path class="tent" d="M19 26c-2 7 2 9 0 16"/>
+        <path class="tent" d="M26 26c2 7-2 9 0 16"/>
+        <path class="tent" d="M33 26c2 6-2 8 0 14s2 6 1 9"/>
+      </svg>
+      <div>
+        <h1>Jellyfish</h1>
+        <p class="tag">Deadlines, eligibility and official links for Bangladeshi students applying abroad.</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="next" id="next" aria-live="polite"></div>
+
+  <section class="filters" aria-label="Filters">
+    <div class="row">
+      <input class="search" id="q" type="search" placeholder="Search scholarships" aria-label="Search scholarships">
+      <select class="sel" id="country" aria-label="Country"></select>
+    </div>
+    <div class="row">
+      <span class="lab">Degree</span>
+      <div class="chips" id="degChips"></div>
+    </div>
+    <div class="row">
+      <span class="lab">Status</span>
+      <div class="chips" id="stChips"></div>
+    </div>
+    <div class="row">
+      <span class="lab">Funding</span>
+      <div class="chips" id="fundChips"></div>
+    </div>
+  </section>
+
+  <details class="fit" id="fit">
+    <summary>Am I eligible? <span id="fitSum">Tell us a little about you</span></summary>
+    <div class="fit-body">
+      <label>Degree you want
+        <select class="sel" id="pDeg">
+          <option value="any">Any</option>
+          <option value="Bachelor's">Bachelor's</option>
+          <option value="Master's">Master's</option>
+          <option value="PhD">PhD</option>
+        </select>
+      </label>
+      <label>Full-time work experience
+        <select class="sel" id="pExp">
+          <option value="0">None yet</option>
+          <option value="1">About 1 year</option>
+          <option value="2">2 years</option>
+          <option value="3">3 years or more</option>
+        </select>
+      </label>
+      <label>English test
+        <select class="sel" id="pEng">
+          <option value="0">Not taken yet</option>
+          <option value="6">IELTS 6.0</option>
+          <option value="6.5">IELTS 6.5</option>
+          <option value="7">IELTS 7.0 or higher</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="pFor"> I hold a Master's from outside Bangladesh</label>
+      <p class="fit-note">This checks headline rules only. Each scholarship has more conditions, so confirm on the official page before you apply.</p>
+    </div>
+  </details>
+
+  <details class="fit" id="cg">
+    <summary>CGPA converter <span>Bangladesh scores for the UK, Germany and more</span></summary>
+    <div class="fit-body">
+      <label>Score type
+        <select class="sel" id="cgMode">
+          <option value="cgpa">University CGPA (out of 4.0)</option>
+          <option value="hsc">HSC GPA (out of 5.0)</option>
+        </select>
+      </label>
+      <label>Your score
+        <input class="sel" id="cgVal" type="number" inputmode="decimal" step="0.01" min="0" max="5" placeholder="e.g. 3.45">
+      </label>
+      <div class="cg-out" id="cgOut" aria-live="polite"></div>
+      <p class="fit-note">A rough guide built from published university minimums and the standard German formula. Each university sets its own rules, and credential evaluators can read your transcript differently.</p>
+    </div>
+  </details>
+
+  <div class="row" style="justify-content: space-between;">
+    <span class="count" id="count"></span>
+    <button class="chip" id="savedBtn" aria-pressed="false">Saved only</button>
+  </div>
+
+  <main class="list" id="list"></main>
+
+  <footer class="foot">
+    Prototype with 26 scholarships, last checked 20 Oct 2026. Dates marked "expected" follow last year's pattern and can change. Always confirm on the official page.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var B = "Bachelor's", M = "Master's", P = "PhD";
+  var DATA = [
+    { id: "commonwealth", name: "Commonwealth Master's Scholarships", country: "United Kingdom", degrees: [M],
+      covers: "Tuition fees, return airfare, monthly living allowance.",
+      deadlineLabel: "20 Oct 2026, 16:00 UK time", opens: "2026-09-08", closes: "2026-10-20",
+      summary: "UK government scholarship for full-time taught Master's study in the UK, for people from eligible lower and middle income Commonwealth countries who could not otherwise afford it. Bangladesh was on the eligible list in the previous round.",
+      eligibility: ["Citizen of, and permanently resident in, an eligible Commonwealth country", "First degree of at least upper second class (2:1) standard by September 2027, or a lower second plus a relevant postgraduate qualification", "Unable to afford UK study without the scholarship", "Ready to start in the UK in September 2027 and return home afterwards"],
+      apply: ["Apply online through the CSC system via a nominating body. The CSC does not take direct applications.", "Nominators can set earlier closing dates, so contact yours now.", "Results are expected by July 2027."],
+      link: "https://cscuk.fcdo.gov.uk/masters", conf: "official", rules: { check: "Applications go through a nominating body, so ask yours about its own deadline." } },
+    { id: "chevening", name: "Chevening Scholarships", country: "United Kingdom", degrees: [M],
+      covers: "Tuition, living costs, visa fee.",
+      deadlineLabel: "6 Oct 2026, 11:00 UTC", opens: "2026-08-04", closes: "2026-10-06",
+      next: "The next round is expected to open around August 2027. This is an estimate from past years.",
+      summary: "UK government scholarship for a one-year, fully funded taught Master's at a UK university.",
+      eligibility: ["Citizen of a Chevening-eligible country", "Finished your undergraduate degree at least two years before the application deadline", "Commit to returning home for at least two years after the scholarship", "If selected, an unconditional offer from one of your three course choices by 8 July"],
+      apply: ["Apply online and choose three eligible UK courses.", "You do not need a university offer to submit the application."],
+      link: "https://www.chevening.org/scholarships/", conf: "multi", rules: {} },
+    { id: "fulbright", name: "Fulbright Foreign Student Program", country: "United States", degrees: [M],
+      covers: "Tuition, stipend, health insurance and travel, according to the programme description.",
+      deadlineLabel: "11 Jul 2026", opens: null, closes: "2026-07-11",
+      next: "The next call is expected between May and July 2027. This is an estimate, so watch US Embassy Dhaka announcements.",
+      summary: "US government scholarship for one to two years of Master's study at a US university, run in Bangladesh through the US Embassy in Dhaka.",
+      eligibility: ["Bangladeshi citizen living in Bangladesh when applying", "Four-year bachelor's degree from a recognised Bangladeshi university", "No Master's degree from outside Bangladesh (a Bangladeshi Master's is fine)", "Priority for junior university faculty and applicants committed to US and Bangladesh ties", "English score in the previous round: TOEFL iBT 90 or IELTS 7.0"],
+      apply: ["Apply through the call published by US Embassy Dhaka.", "GRE or GMAT scores may be submitted where your US programme needs them."],
+      link: "https://bd.usembassy.gov/", conf: "multi", rules: { noForeign: true, minIelts: 7 } },
+    { id: "australia", name: "Australia Awards Scholarships", country: "Australia", degrees: [M],
+      covers: "Tuition, stipend, return airfare, health cover.",
+      deadlineLabel: "1 Feb to 30 Apr 2027", opens: "2027-02-01", closes: "2027-04-30",
+      opensLabel: "Opens 1 Feb 2027",
+      summary: "Australian Government scholarship for full-time postgraduate study in Australia, for emerging leaders from Bangladesh and neighbouring countries. Applications open on 1 February and close on 30 April each year.",
+      eligibility: ["Citizen of Bangladesh", "Suitably qualified for full-time postgraduate study in a priority field", "About 2 years of work experience and IELTS Academic 6.5 with no band below 6.0 (from a third-party guide, so confirm on the official page)"],
+      apply: ["Apply online through the Online Australia Awards Scholarships Information System.", "Read the country page for Bangladesh before the window opens."],
+      link: "https://australiaawardssouthasiamongolia.org/scholarships/", conf: "official", rules: { minExp: 2, minIelts: 6.5 } },
+    { id: "daad", name: "DAAD EPOS Development-Related Master's", country: "Germany", degrees: [M],
+      covers: "Monthly stipend and allowances set by DAAD.",
+      deadlineLabel: "Set by each course. Many close between August and November.", varies: true, sortDate: "2026-11-15",
+      summary: "DAAD funds Master's courses in development-related fields for graduates from developing countries. You apply directly to each course, not to DAAD.",
+      eligibility: ["Bachelor's degree, normally four years, in a related subject", "At least two years of professional experience", "Clear development-related motivation", "Not lived in Germany for more than 15 months at the deadline", "English-taught courses need proof of English such as IELTS or TOEFL"],
+      apply: ["Choose up to three courses on the DAAD EPOS list for 2027/28.", "Apply to each course by its own deadline.", "Send a separate motivation letter for each course."],
+      link: "https://www.daad.de/epos-info", conf: "expected", rules: { minExp: 2, minIelts: 6 } },
+    { id: "sh", name: "Stipendium Hungaricum", country: "Hungary", degrees: [B, M, P],
+      covers: "Tuition, monthly stipend, accommodation contribution, health insurance.",
+      deadlineLabel: "Expected 15 Jan 2027, 2 pm CET", opens: "2026-11-01", closes: "2027-01-15", expected: true,
+      opensLabel: "Expected to open around Nov 2026",
+      summary: "Hungarian government scholarship at about 30 Hungarian universities. Bangladesh takes part through its Ministry of Education as the sending partner.",
+      eligibility: ["Bangladeshi citizen", "Bachelor's, Master's or PhD, in fields agreed between Hungary and Bangladesh", "Nomination by Bangladesh's sending partner is needed on top of the online application", "Check the current sending partner list to confirm Bangladesh is included for 2027/28"],
+      apply: ["Apply on the Stipendium Hungaricum online system.", "Follow the sending partner's own process too. Its deadline can be earlier.", "Universities review nominated applications. Results usually come in June or July."],
+      link: "https://stipendiumhungaricum.hu/", conf: "expected", rules: { check: "Needs nomination by Bangladesh's sending partner." } },
+    { id: "erasmus", name: "Erasmus Mundus Joint Masters", country: "Europe (several countries)", degrees: [M],
+      covers: "Tuition, monthly living allowance, travel and insurance for scholarship holders.",
+      deadlineLabel: "Set by each programme. Most 2027 intake deadlines fall in Jan and Feb 2027.", varies: true, sortDate: "2027-01-31",
+      summary: "EU-funded joint Master's taught at two or more European universities. There is no central application, so you apply to each programme.",
+      eligibility: ["Bachelor's degree, or in your final year and graduating before the programme starts", "Academic and language requirements differ by programme", "English proof is usually needed and sometimes waived by medium of instruction", "You can apply to at most three programmes per year"],
+      apply: ["Browse the Erasmus Mundus catalogue.", "Apply on each programme's own website.", "Check the scholarship category open to students from Bangladesh."],
+      link: "https://www.eacea.ec.europa.eu/scholarships/erasmus-mundus-catalogue_en", conf: "expected", rules: {} },
+    { id: "si", name: "Swedish Institute Scholarships for Global Professionals", country: "Sweden", degrees: [M],
+      covers: "Tuition, living allowance (SEK 12,000 a month last round), insurance, travel grant.",
+      deadlineLabel: "Programmes by 15 Jan 2027, then scholarship form 9 to 25 Feb 2027", opens: "2026-10-16", closes: "2027-01-15", expected: true,
+      summary: "Swedish Institute scholarship for professionals from selected countries, for a full-time English-taught Master's in Sweden. Bangladesh is on the eligible list.",
+      eligibility: ["Citizen of an eligible country, Bangladesh included", "About 3,000 hours of documented work experience, roughly 18 months full-time", "Admitted to an eligible Master's programme through University Admissions", "Not lived in Sweden for more than two years and no earlier SI scholarship"],
+      apply: ["Apply to eligible Master's programmes at universityadmissions.se between 16 Oct 2026 and 15 Jan 2027.", "Submit the SI scholarship form on the SI portal between 9 and 25 Feb 2027, using your admissions number.", "Results are expected in April 2027."],
+      link: "https://si.se/en/apply/scholarships/swedish-institute-scholarships-for-global-professionals", conf: "expected", rules: { minExp: 1.5 } },
+    { id: "gates", name: "Gates Cambridge Scholarship", country: "United Kingdom", degrees: [M, P],
+      covers: "Full tuition, maintenance allowance, return airfare.",
+      deadlineLabel: "2 Dec 2026 or 7 Jan 2027, depending on your course", opens: "2026-09-01", closes: "2026-12-02",
+      summary: "Full-cost scholarship for postgraduate study at the University of Cambridge, for applicants from outside the UK. About 80 awards a year, roughly two thirds to PhD students.",
+      eligibility: ["Not a UK citizen", "Applying for a full-time PhD, MPhil or an eligible one-year postgraduate course at Cambridge", "Academic excellence, leadership potential and commitment to improving the lives of others"],
+      apply: ["Tick the Gates Cambridge box on the Cambridge graduate application.", "Your course sets the deadline, and it is not extended."],
+      link: "https://www.gatescambridge.org/apply/", conf: "multi", rules: {} },
+    { id: "pearson", name: "Lester B. Pearson International Scholarship", country: "Canada", degrees: [B],
+      covers: "Tuition, books, incidental fees and full residence support for four years.",
+      deadlineLabel: "School nomination closed 9 Oct 2026. Nominated students submit by 6 Nov 2026.", opens: null, closes: "2026-10-09",
+      next: "The next round, for September 2028 entry, is expected to open in autumn 2027. This is an estimate.",
+      summary: "University of Toronto's top award for international students starting a first undergraduate degree. About 37 awards each year.",
+      eligibility: ["International student who needs a Canadian study permit", "Finishing secondary school, or graduated no earlier than June of the entry year", "Starting a first undergraduate degree at U of T in September 2027", "Nominated by your school. You cannot apply on your own."],
+      apply: ["Your school nominates you.", "Apply for admission to U of T.", "Complete the private Pearson form sent after nomination."],
+      link: "https://future.utoronto.ca/pearson-scholarships", conf: "multi", rules: { check: "Your school must nominate you." } },
+    { id: "auckland-phd", name: "University of Auckland Doctoral Scholarship", country: "New Zealand", degrees: [P],
+      covers: "Tax-free stipend of up to NZ$35,468 a year (2026 rate), PhD tuition fees and the health insurance charge, for up to 42 months.",
+      deadlineLabel: "Rounds close 1 Nov, 1 Feb, 1 May and 1 Aug. Next: 1 Nov 2026", opens: null, closes: "2026-11-01",
+      summary: "Funding for international students starting a PhD at the University of Auckland. There is no separate scholarship form. You ask to be considered on your doctoral application.",
+      eligibility: ["International student who qualifies for domestic tuition fees under the university's international PhD fee policy", "Offered a place in a University of Auckland doctoral programme", "Faculty entry rules apply, usually a relevant honours or Master's degree with strong grades (from a third-party summary)", "Competitive, so admission alone does not guarantee funding"],
+      apply: ["Apply for a doctoral programme by a round deadline.", "Say yes to scholarship consideration on the application.", "Check your faculty or research centre page for extra funding."],
+      link: "https://www.auckland.ac.nz/en/study/scholarships-and-awards/scholarship-types/scholarships-for-international-students/doctoral-scholarships-for-international-students.html", conf: "official", rules: {} },
+    { id: "auckland-ise", name: "Auckland International Student Excellence Scholarship", country: "New Zealand", degrees: [M], fund: "Partial",
+      covers: "25% of one year of tuition fees, paid once.",
+      deadlineLabel: "Offer by 20 Oct 2026 for Semester One 2027, then form by 4 Nov 2026", opens: null, closes: "2026-10-20",
+      next: "Auckland runs this twice a year. Check its page for the next intake dates.",
+      summary: "Tuition award for new international Master's students at the University of Auckland. You do not apply first. Eligible students get an invitation after receiving an admission offer.",
+      eligibility: ["New international Master's student", "Conditional or unconditional offer for Semester One or Quarter Two 2027 by 20 Oct 2026", "Invited students complete a supplementary form by 4 Nov 2026"],
+      apply: ["Apply for admission to an eligible Master's programme.", "Wait for the invitation, issued on 21 Oct 2026.", "Submit the supplementary form online."],
+      link: "https://www.auckland.ac.nz/en/study/scholarships-and-awards/find-a-scholarship/university-of-auckland-international-student-excellence-scholarship-844-all.html", conf: "official", rules: { check: "You need an admission offer by 20 Oct 2026." } },
+    { id: "otago-global", name: "Otago Global Scholarships", country: "New Zealand", degrees: [B], fund: "Partial",
+      covers: "NZ$15,000 credited to tuition for one year.",
+      deadlineLabel: "10 Dec 2026 for a February 2027 start. 30 Apr 2027 for a July 2027 start", opens: null, closes: "2026-12-10",
+      summary: "University of Otago entrance award for first-year international undergraduates. Bangladesh is one of the nominated countries.",
+      eligibility: ["Finished secondary school and starting full-time undergraduate study on campus", "Applying from a nominated country. Bangladesh is on the list, and Otago can change it", "Not sponsored by a home government or the New Zealand Government", "Foundation certificate students are not eligible"],
+      apply: ["Choose the international scholarship option in eVision when you apply to Otago.", "February start: applications close 10 Dec. July start from overseas: 30 Apr."],
+      link: "https://www.otago.ac.nz/courses/scholarships/global-scholarships", conf: "official", rules: {} },
+    { id: "berea", name: "Berea College Tuition-Free Education", country: "United States", degrees: [B],
+      covers: "100% of tuition, housing, food and fees for admitted international students. A $2,200 deposit is due before the I-20 is issued.",
+      deadlineLabel: "30 Nov 2026, no extensions", opens: null, closes: "2026-11-30", expected: true,
+      summary: "Small US liberal arts college that covers the full cost of study for admitted international students. New international students start in the fall term only.",
+      eligibility: ["Strong secondary or leaving exam results that meet your home country's university entrance rules", "No bachelor's degree already (Berea has no graduate programmes)", "One English proof with no exceptions: TOEFL, IELTS, SAT, ACT or Duolingo", "Berea also checks financial eligibility, so read its financial eligibility page"],
+      apply: ["Apply by 30 Nov. Extensions are not granted.", "Admitted students get aid covering tuition, housing, food and fees.", "Pay the $2,200 deposit before the I-20 is issued. The college may adjust it if you cannot pay.", "Decisions come in mid-March and you confirm by 1 May."],
+      link: "https://www.berea.edu/no-tuition", conf: "official", rules: { check: "Berea also checks financial eligibility." } },
+    { id: "mit", name: "MIT Need-Based Financial Aid", country: "United States", degrees: [B], fund: "Need-based",
+      covers: "100% of demonstrated financial need for all four years, for international students too. No merit aid.",
+      deadlineLabel: "Early Action 1 Nov, Regular Action 4 Jan. Aid forms 30 Nov or 15 Feb", opens: null, closes: "2026-11-01", expected: true,
+      summary: "MIT does not consider ability to pay when it admits international students, and it meets full demonstrated need. Aid depends only on your family's need.",
+      eligibility: ["Apply to MIT for first-year entry", "International families follow a separate aid process on MIT's Student Financial Services site", "Aid is need-based only, so it depends on the finances your family documents", "English tests are strongly recommended for some non-native speakers"],
+      apply: ["Submit the MIT application by 1 Nov (Early Action) or 4 Jan (Regular Action).", "Send aid documents by 30 Nov (Early Action) or 15 Feb (Regular Action).", "Regular Action decisions arrive in mid-March."],
+      link: "https://mitadmissions.org/apply/firstyear/deadlines-requirements/", conf: "expected", rules: { check: "Aid depends on your family's demonstrated need." } },
+    { id: "harvard", name: "Harvard College Financial Aid", country: "United States", degrees: [B], fund: "Need-based",
+      covers: "Harvard says it meets 100% of demonstrated need for admitted students, including international students.",
+      deadlineLabel: "Restrictive Early Action 1 Nov, Regular Decision 1 Jan. Aid forms 1 Nov or 1 Feb", opens: null, closes: "2026-11-01", expected: true,
+      summary: "Harvard admits international students without looking at their ability to pay, then meets their full demonstrated need.",
+      eligibility: ["Apply to Harvard College for first-year entry", "Complete the CSS Profile and the IDOC document packet, whatever your citizenship", "Send income and asset documents such as employer letters and salary slips", "Aid is need-based, so your family's documented finances decide the award"],
+      apply: ["Submit the Harvard application by 1 Nov (Restrictive Early Action) or 1 Jan (Regular Decision).", "Submit aid forms by 1 Nov (Early) or 1 Feb (Regular).", "Check the CSS Profile and IDOC portals to confirm Harvard received everything."],
+      link: "https://college.harvard.edu/admissions/apply/first-year-applicants", conf: "expected", rules: { check: "Aid depends on your family's demonstrated need." } },
+    { id: "khs", name: "Knight-Hennessy Scholars", country: "United States", degrees: [M, P],
+      covers: "Up to three years of graduate study at Stanford. The programme page does not list amounts.",
+      deadlineLabel: "6 Oct 2026, 1 pm Pacific", opens: null, closes: "2026-10-06",
+      next: "The application for the 2028 cohort opens in summer 2027, according to the programme.",
+      summary: "Stanford leadership programme that funds graduate study at Stanford. About 100 scholars are chosen each year, from citizens of all countries.",
+      eligibility: ["Entering a full-time Stanford graduate degree, or a joint or dual degree", "Bachelor's degree or equivalent earned in January 2021 or later (the rule shown for the 2028 cohort)", "Complete the Stanford graduate application, including any required English tests", "Application includes short responses, a 550-word essay, a resume and two recommendation letters"],
+      apply: ["Apply to your Stanford degree programme by its own deadline.", "Submit the Knight-Hennessy application by its October deadline.", "Finalists may be asked for a video."],
+      link: "https://knight-hennessy.stanford.edu/dates-and-deadlines", conf: "multi", rules: {} },
+    { id: "rotary", name: "Rotary Peace Fellowship (Master's)", country: "United States", degrees: [M],
+      covers: "Tuition and fees, room and board, round-trip transport, and internship and field study costs.",
+      deadlineLabel: "Opens Feb 2027. Closing date not yet announced", opens: "2027-02-01", opensLabel: "Opens Feb 2027",
+      summary: "Rotary-funded Master's in peace and development, 15 to 24 months, including a two to three month field study you design yourself. Made for leaders with work experience in peace and development.",
+      eligibility: ["Leaders with work experience in peace and development", "Full criteria are on Rotary's eligibility page", "Applications go online through My Rotary"],
+      apply: ["Wait for the 2028-29 application to open in February 2027.", "Apply online through My Rotary.", "Use Rotary's referral form if someone you know should receive more information."],
+      link: "https://rotary.org/peace-fellowships", conf: "official", rules: {} },
+    { id: "aauw", name: "AAUW International Fellowships", country: "United States", degrees: [M, P], fund: "Partial",
+      covers: "$20,000 for a Master's or $25,000 for a doctorate, paid in two instalments.",
+      deadlineLabel: "17 Sep 2026, 5 pm Eastern", opens: null, closes: "2026-09-17",
+      next: "The 2027-28 round opened 17 Aug and closed 17 Sep 2026. Expect a similar window in 2027. This is an estimate.",
+      summary: "AAUW fellowship for women who are not US citizens, for a first Master's or a doctorate in a STEM field at a US university.",
+      eligibility: ["Women who are not US citizens or permanent residents", "Admitted to or enrolled in a first Master's or a doctorate in a STEM field", "Degree equivalent to a US bachelor's, with at least 3.5 on a 4.0 scale for your highest degree", "Full-time study at a US accredited institution, starting by 15 Sep 2027 for this round", "One-time award"],
+      apply: ["Apply online during the August to September window.", "Funds cover tuition, fees, materials and living costs during the fellowship."],
+      link: "https://www.aauw.org/resources/programs/fellowships-grants/aauw-international-fellowships/", conf: "official", rules: { check: "Open to women in STEM, with at least 3.5 on a 4.0 scale." } },
+    { id: "usphd", name: "Funded PhD Assistantships at US Universities", country: "United States", degrees: [P],
+      covers: "Tuition remission, health insurance and a stipend, as at the UConn department used as the example. Terms differ by university.",
+      deadlineLabel: "Set by each department. Many fall between December and January. Example: UConn, 1 Dec", varies: true, sortDate: "2026-12-01",
+      summary: "Most US PhD funding comes from the department as a graduate assistantship, not from a separate scholarship. International students are eligible.",
+      eligibility: ["Admission to a PhD programme", "Funding is competitive. In the UConn department used as the example, usually the top three incoming PhD students get full assistantships", "Stipend amounts and years guaranteed differ by university, so check each programme page"],
+      apply: ["Shortlist programmes and research groups.", "Apply by each department's funding deadline. It is often earlier than the general deadline.", "Ask the department what funding it offers international students."],
+      link: "https://rmme.education.uconn.edu/funding/", conf: "example", rules: {} },
+    { id: "sydney-rtp", name: "University of Sydney Research Scholarships (RTP and USYDIS)", country: "Australia", degrees: [M, P],
+      covers: "100% tuition fees for up to 14 research periods, Overseas Student Health Cover, and a stipend of A$44,293 a year (2027 rate), plus relocation and thesis allowances.",
+      deadlineLabel: "18 Dec 2026 for 2027 research periods 3 and 4. Next: 10 Sep 2027", opens: null, closes: "2026-12-18",
+      summary: "Fully funded research degrees for international students at the University of Sydney. The RTP and the University's own international stipend scholarship share the same application form.",
+      eligibility: ["International student starting or already in a higher degree by research", "Preference may go to PhD applicants who have not held an Australian Government or University scholarship at the same level", "Competitive, and based on research ability", "Outcomes for the 18 Dec round are due 18 May 2027 for offshore applicants"],
+      apply: ["Apply for HDR admission through Sydney Courses by the deadline.", "Then submit the scholarship form from the RTP page.", "Contact a supervisor before you apply."],
+      link: "https://www.sydney.edu.au/scholarships/australian-government-research-training-program/rtp-international.html", conf: "official", rules: { check: "Research degree applicants only. Competitive." } },
+    { id: "sydney-vc", name: "University of Sydney Vice-Chancellor's International Scholarships", country: "Australia", degrees: [B, M], fund: "Partial",
+      covers: "A$5,000 to A$60,000 depending on ranking. The page also says up to A$40,000, so confirm the current figure with Sydney.",
+      deadlineLabel: "Round 3 for Semester 1 2027: 16 Nov 2026. Semester 2 rounds: 15 Feb, 22 Mar, 3 May 2027", opens: null, closes: "2026-11-16",
+      summary: "Tuition award for international students starting a Sydney bachelor's or coursework master's. You do not submit a separate application.",
+      eligibility: ["International student who has applied for an eligible degree and has not started it", "An unconditional offer of admission by the round's closing date", "Not available to Australian Government scholarship holders", "Funds are limited, and holders need a semester average of at least 65 for later payments"],
+      apply: ["Apply for admission to Sydney.", "Get an unconditional offer before the closing date. You are then considered automatically."],
+      link: "https://www.sydney.edu.au/scholarships/e/vice-chancellor-international-scholarships-scheme.html", conf: "official", rules: { check: "You need an unconditional offer by the closing date." } },
+    { id: "melb-research", name: "Melbourne Research Scholarship", country: "Australia", degrees: [M, P],
+      covers: "100% fee remission plus a stipend of A$41,100 a year (2027 rate), for up to A$138,000 in total. Up to 2 years for a research Master's and 4 for a doctorate. Includes health cover and a A$3,000 relocation allowance from overseas.",
+      deadlineLabel: "Your research course's closing date. No separate application.", varies: true, sortDate: "2026-12-31",
+      summary: "University of Melbourne scholarship for international students in graduate research degrees. You are considered automatically when you apply for a course.",
+      eligibility: ["International students are eligible", "Applied for, and meet the entry requirements of, a Melbourne graduate research degree", "Selection looks at academic results and research potential, and can include publications and experience"],
+      apply: ["Apply for your graduate research course by its closing date.", "You are told within seven days that you are being considered."],
+      link: "https://scholarships.unimelb.edu.au/awards/melbourne-research-scholarship", conf: "official", rules: { check: "Competitive, and based on research potential." } },
+    { id: "melb-intl", name: "Melbourne International Graduate Scholarship", country: "Australia", degrees: [M], fund: "Partial",
+      covers: "20% tuition fee sponsorship for the whole course. At least 300 awards.",
+      deadlineLabel: "No separate deadline. You are considered when you apply for a course.", varies: true, sortDate: "2026-12-31",
+      summary: "University of Melbourne fee sponsorship for international Master's students from lower income countries. It applies from 2027 entry.",
+      eligibility: ["Citizen of a country with GDP per capita of US$10,000 or less on Melbourne's eligible countries list", "An offer for an Overseas Fee place in a Master's degree. Some doctorates are excluded", "Cannot be combined with another fee scholarship or sponsorship", "Awarded to the highest-ranked students by course entry score"],
+      apply: ["Apply for your Master's course.", "You are notified within five working days of an offer if you receive it. Unsuccessful applicants are not told."],
+      link: "https://scholarships.unimelb.edu.au/awards/melbourne-international-graduate-scholarship", conf: "official", rules: { check: "Check that Bangladesh is on Melbourne's eligible country list." } },
+    { id: "monash-merit", name: "Monash International Merit Scholarship", country: "Australia", degrees: [B], fund: "Partial",
+      covers: "A$15,000 a year for scholarships awarded from 2026, up to A$75,000 in total.",
+      deadlineLabel: "No separate deadline. Considered with your undergraduate offer.", varies: true, sortDate: "2026-12-31",
+      summary: "Monash tuition award for international students starting a bachelor's on a Monash campus in Australia. Selection is based on academic achievement.",
+      eligibility: ["International student with an unconditional Monash undergraduate offer", "Studying full time. Monash College and foundation pathways are excluded", "Keep a distinction average of 70% or above each semester"],
+      apply: ["Apply for a Monash undergraduate course.", "No scholarship application is needed. You are considered automatically with an unconditional offer."],
+      link: "https://www.monash.edu/study/fees-scholarships/scholarships/find-a-scholarship/international-merit-5770", conf: "official", rules: { check: "Needs an unconditional offer." } },
+    { id: "anu-urs", name: "ANU University Research Scholarship", country: "Australia", degrees: [P], closed: true,
+      covers: "A stipend of A$40,475 a year (2027 rate) for 3.5 years of a PhD or 1.5 years of an MPhil, with travel, removal and thesis allowances.",
+      deadlineLabel: "Round 1 international deadline: 31 Aug. Round 2 dates are not listed.", opens: null, closes: null,
+      next: "The page lists Round 1 (31 Aug, year not stated) and does not list Round 2 dates for study starting by August 2027. Ask the ANU HDR convener.",
+      summary: "ANU stipend for research degree students, including international students. You select the scholarship option when you apply for your research programme.",
+      eligibility: ["Enrolled in an accredited ANU research degree", "At least Honours H1 or an equivalent result", "Industry PhD candidates with a full-time salary are excluded", "Contact the HDR convener or a supervisor before applying"],
+      apply: ["Apply for your ANU HDR programme and choose the ANU scholarship option.", "Apply two to three weeks before the deadline. Your referees must submit their reports."],
+      link: "https://study.anu.edu.au/scholarships/find-scholarship/anu-university-research-scholarships", conf: "multi", rules: {} }
+  ];
+
+  /* English test rules, shown on each card and used by the eligibility check */
+  var ENG = {
+    commonwealth: { s: "Not needed to apply", d: "The CSC says you do not need IELTS or another English certificate to apply. Your UK university may still ask for one when it considers your admission.", l: ["CSC FAQ", "https://cscuk.fcdo.gov.uk/commonwealth-scholarships-frequently-asked-questions/"] },
+    chevening: { s: "Set by your university course", d: "Chevening dropped its own English requirement in 2020. You still need an unconditional offer, so the test and score come from the university course you choose.", l: ["Chevening FAQ", "https://www.chevening.org/faqs/what-happened-to-chevenings-english-language-requirement/"] },
+    fulbright: { s: "IELTS 7.0 or TOEFL iBT 90 (last round)", d: "Those were the scores in the previous Bangladesh round, from a third-party guide. Confirm them in the current call from US Embassy Dhaka." },
+    australia: { s: "6.5 overall, no band under 6.0", d: "From a third-party guide to the Bangladesh round. Confirm on the official page." },
+    daad: { s: "Set by each course", d: "English-taught courses ask for IELTS or TOEFL. Third-party guides often cite IELTS 6.0 or TOEFL iBT 80, but each course sets its own score." },
+    sh: { s: "Proof of English, score varies", d: "IELTS or TOEFL is one accepted proof. The minimum depends on the university and programme, and your sending partner may ask for a specific certificate.", l: ["Debrecen guide for Bangladeshi applicants", "https://southasia.edu.unideb.hu/blog/blog-details/Stipendium-Hungaricum-Scholarship-Process-for-Bangladeshi-Students/"] },
+    erasmus: { s: "Set by each programme", d: "Most programmes want IELTS, TOEFL or similar. Some waive it if your Bachelor's was taught in English. Check each programme's page." },
+    si: { s: "Required, score set by programme", d: "Proof of English is listed among the documents. The score comes from your Swedish Master's programme, so check its page." },
+    gates: { s: "Cambridge example: 7.5 overall", d: "Cambridge asks for IELTS Academic. The PhD in English page lists 7.5 overall and 7.0 in each part. Other courses can differ, so check yours.", l: ["Example course requirements", "https://www.postgraduate.study.cam.ac.uk/courses/directory/elelpdeng/requirements"] },
+    pearson: { s: "6.5 overall, no band under 6.0", d: "IELTS Academic from a single test sitting, sent by the test centre. The IELTS Indicator and One Skill Retake are not accepted. You can ask for an exemption after four or more years of full-time study at an English-language school in a country where English is dominant.", l: ["U of T English requirements", "https://future.utoronto.ca/english-language-requirements"] },
+    "auckland-phd": { s: "6.5 overall, no band under 6.0", d: "This is Auckland's standard postgraduate level, and your programme page can set its own minimum. A completed degree taught in English at a recognised institution may replace a test.", l: ["Auckland postgraduate English rules", "https://www.auckland.ac.nz/en/study/applications-and-admissions/entry-requirements/postgraduate-entry-requirements/postgraduate-english-language-requirements.html"] },
+    "auckland-ise": { s: "6.5 overall, no band under 6.0", d: "This is Auckland's standard postgraduate level, and your programme page can set its own minimum. A completed degree taught in English at a recognised institution may replace a test.", l: ["Auckland postgraduate English rules", "https://www.auckland.ac.nz/en/study/applications-and-admissions/entry-requirements/postgraduate-entry-requirements/postgraduate-english-language-requirements.html"] },
+    "otago-global": { s: "6.0 overall, no band under 5.5", d: "IELTS Academic for undergraduate study. Study in English at a recognised institution can count for some applicants, and some programmes ask for more.", l: ["Otago language requirements", "https://www.otago.ac.nz/study/entry-requirements/language-requirements"] },
+    berea: { s: "6.0 overall, at least 5 in each area", d: "One English test is required with no exceptions, even for fluent speakers. Berea also accepts TOEFL iBT 68, SAT 980, ACT 19 or Duolingo 95. Scores older than two years are almost never considered.", l: ["Berea international FAQ", "https://www.berea.edu/admissions/admission-information/apply/checklist-items/international-faqs"] },
+    mit: { s: "No fixed score, tests recommended", d: "MIT does not list English tests as a general requirement. It strongly recommends them for certain non-native speakers, and Regular Action applicants take any test before 31 Jan.", l: ["MIT deadlines and requirements", "https://mitadmissions.org/apply/firstyear/deadlines-requirements/"] },
+    harvard: { s: "See Harvard's international page", d: "The first-year application page does not give English requirements. They are on Harvard's international applicants page.", l: ["Harvard international applicants", "https://college.harvard.edu/admissions/apply/international-applicants"] },
+    khs: { s: "Set by your Stanford programme", d: "You complete the full Stanford graduate application, including any English proficiency tests your programme requires." },
+    rotary: { s: "Check Rotary's eligibility page", d: "The main fellowship page does not state an English requirement. Your host university may set one." },
+    aauw: { s: "Set by your US university", d: "The AAUW page does not list an English test. Your US university sets its own requirement." },
+    usphd: { s: "Set by each university", d: "Most US universities ask international applicants for a test such as IELTS or TOEFL. Scores differ by programme, so check each one." },
+    "sydney-rtp": { s: "Set by your course", d: "Sydney sets the English level for each research course, and the scholarship page does not list a score. Check your course page." },
+    "sydney-vc": { s: "Set by your course", d: "Sydney sets the English level for each course, and the scholarship page does not list a score. You also need an unconditional offer, so you must meet it." },
+    "melb-research": { s: "6.5 to 7.5 by course level", d: "Melbourne sets a level per course. Level 1 is IELTS 6.5 with 6.0 in each band. Level 2 is 7.0 with 6.5 in each band. Level 3 is 7.5 with 7.0 in each band. Some graduate courses ask for more. Tests must be taken in one sitting within 24 months of your start, and online or at-home versions are not accepted.", l: ["Melbourne English requirements", "https://study.unimelb.edu.au/how-to-apply/english-language-requirements"] },
+    "melb-intl": { s: "6.5 to 7.5 by course level", d: "Melbourne sets a level per course. Level 1 is IELTS 6.5 with 6.0 in each band. Level 2 is 7.0 with 6.5 in each band. Level 3 is 7.5 with 7.0 in each band. Your course page shows its level.", l: ["Melbourne English requirements", "https://study.unimelb.edu.au/how-to-apply/english-language-requirements"] },
+    "monash-merit": { s: "Set by your course", d: "Monash sets the English level for each course, and the scholarship page does not list a score. You need an unconditional offer, so you must meet it." },
+    "anu-urs": { s: "Not listed", d: "The scholarship page gives no minimum score, but English competency is one factor in ranking applicants. Your ANU programme sets its own requirement." }
+  };
+  var MINIELTS = { "auckland-phd": 6.5, "auckland-ise": 6.5, "otago-global": 6, pearson: 6.5, berea: 6 };
+  DATA.forEach(function (s) { if (MINIELTS[s.id]) { s.rules = s.rules || {}; s.rules.minIelts = MINIELTS[s.id]; } });
+
+  /* University and programme sites. They open in a new tab because these sites cannot be shown inside this page. */
+  var SITES = {
+    commonwealth: [["CSC official site", "https://cscuk.fcdo.gov.uk/"]],
+    chevening: [["Find eligible UK courses", "https://www.chevening.org/scholarships/guidance/courses/"]],
+    fulbright: [["US Embassy Dhaka", "https://bd.usembassy.gov/"], ["EducationUSA", "https://educationusa.state.gov/"]],
+    australia: [["Australia Awards South Asia", "https://australiaawardssouthasiamongolia.org/"]],
+    daad: [["DAAD EPOS course list", "https://www.daad.de/epos-info"], ["DAAD", "https://www.daad.de/en/"]],
+    sh: [["Stipendium Hungaricum", "https://stipendiumhungaricum.hu/"], ["Study in Hungary", "https://studyinhungary.hu/"]],
+    erasmus: [["Erasmus Mundus catalogue", "https://www.eacea.ec.europa.eu/scholarships/erasmus-mundus-catalogue_en"]],
+    si: [["University Admissions Sweden", "https://www.universityadmissions.se/"], ["Swedish Institute", "https://si.se/en/"]],
+    gates: [["Cambridge graduate admissions", "https://www.postgraduate.study.cam.ac.uk/"], ["Gates Cambridge", "https://www.gatescambridge.org/"]],
+    pearson: [["University of Toronto admissions", "https://future.utoronto.ca/"]],
+    "auckland-phd": [["University of Auckland", "https://www.auckland.ac.nz/"]],
+    "auckland-ise": [["University of Auckland", "https://www.auckland.ac.nz/"]],
+    "otago-global": [["University of Otago", "https://www.otago.ac.nz/"]],
+    berea: [["Berea College", "https://www.berea.edu/"]],
+    mit: [["MIT Admissions", "https://mitadmissions.org/"], ["MIT Student Financial Services", "https://sfs.mit.edu/"]],
+    harvard: [["Harvard College admissions", "https://college.harvard.edu/admissions/apply/first-year-applicants"]],
+    khs: [["Knight-Hennessy Scholars", "https://knight-hennessy.stanford.edu/"]],
+    rotary: [["Rotary Peace Fellowships", "https://rotary.org/peace-fellowships"]],
+    aauw: [["AAUW", "https://www.aauw.org/"]],
+    usphd: [["UConn funding example", "https://rmme.education.uconn.edu/funding/"], ["EducationUSA", "https://educationusa.state.gov/"]],
+    "sydney-rtp": [["University of Sydney scholarships", "https://www.sydney.edu.au/scholarships/"], ["University of Sydney", "https://www.sydney.edu.au/"]],
+    "sydney-vc": [["University of Sydney scholarships", "https://www.sydney.edu.au/scholarships/"], ["University of Sydney", "https://www.sydney.edu.au/"]],
+    "melb-research": [["Melbourne scholarships", "https://scholarships.unimelb.edu.au/"], ["University of Melbourne", "https://www.unimelb.edu.au/"]],
+    "melb-intl": [["Melbourne scholarships", "https://scholarships.unimelb.edu.au/"], ["University of Melbourne", "https://www.unimelb.edu.au/"]],
+    "monash-merit": [["Monash scholarships", "https://www.monash.edu/study/fees-scholarships/scholarships/find-a-scholarship"], ["Monash University", "https://www.monash.edu/"]],
+    "anu-urs": [["ANU scholarships", "https://study.anu.edu.au/scholarships"], ["Australian National University", "https://www.anu.edu.au/"]]
+  };
+
+  var CONF = { official: "Confirmed on the official page", multi: "Cross-checked on university and news sources", expected: "Some dates expected from last year's pattern. Confirm before applying.", example: "Example from one department. Terms differ by university." };
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var st = { q: "", deg: "All", country: "All", status: "All", fund: "All", saved: false, savedIds: [], open: {}, profile: null };
+
+  try { st.savedIds = JSON.parse(localStorage.getItem("jf-saved") || "[]") || []; } catch (e) { st.savedIds = []; }
+  function persist() { try { localStorage.setItem("jf-saved", JSON.stringify(st.savedIds)); } catch (e) {} }
+
+  function d(iso, end) { return new Date(iso + (end ? "T23:59:59" : "T00:00:00")); }
+  function daysTo(iso) { return Math.round((d(iso) - today) / 864e5); }
+  function status(s) {
+    if (s.closed) return "closed";
+    if (s.varies) return "varies";
+    if (s.closes && daysTo(s.closes) < 0) return "closed";
+    if (s.opens && daysTo(s.opens) > 0) return "upcoming";
+    return (s.closes && daysTo(s.closes) <= 30) ? "soon" : "open";
+  }
+  var LABEL = { open: "Open", soon: "Closing soon", upcoming: "Not open yet", varies: "Varies by course", closed: "Closed" };
+  function rank(s) { var k = status(s); return k === "soon" || k === "open" ? 0 : k === "varies" ? 1 : k === "upcoming" ? 2 : 3; }
+  function sortKey(s) {
+    var k = status(s);
+    if (k === "varies") return d(s.sortDate).getTime();
+    if (k === "upcoming") return d(s.opens).getTime();
+    if (k === "closed") return s.closes ? -d(s.closes).getTime() : 0;
+    return d(s.closes).getTime();
+  }
+  function left(s) {
+    var k = status(s), pre = s.expected ? "Expected to close in " : "";
+    if (k === "open" || k === "soon") {
+      var n = daysTo(s.closes);
+      if (n === 0) return { t: "Closes today", hot: true };
+      if (n === 1) return { t: s.expected ? "Expected to close tomorrow" : "1 day left", hot: true };
+      return { t: s.expected ? pre + n + " days" : n + " days left", hot: n <= 14 };
+    }
+    if (k === "upcoming") return { t: s.opensLabel || "Opens " + s.opens, hot: false };
+    if (k === "varies") return { t: "Check each course", hot: false };
+    return { t: "Closed", hot: false };
+  }
+
+  function fit(s) {
+    var p = st.profile; if (!p) return null;
+    var r = s.rules || {};
+    if (p.deg !== "any" && s.degrees.indexOf(p.deg) < 0) return { l: "no", t: "Does not fund " + p.deg };
+    if (r.noForeign && p.foreign) return { l: "no", t: "Not open if you hold a Master's from abroad" };
+    if (r.minExp && p.exp < r.minExp) return { l: "no", t: "Needs about " + (r.minExp === 1.5 ? "18 months" : r.minExp + " years") + " of work experience" };
+    if (r.minIelts && p.eng < r.minIelts) return { l: "check", t: p.eng ? "Usually needs IELTS " + r.minIelts + ", you have " + p.eng : "Usually needs IELTS " + r.minIelts };
+    if (r.check) return { l: "check", t: r.check };
+    return { l: "good", t: "Meets the headline rules" };
+  }
+  var FITLABEL = { good: "Likely fit", check: "Check this", no: "Not a fit" };
+
+  function matches(s) {
+    var q = st.q.trim().toLowerCase();
+    if (q && (s.name + " " + s.country + " " + s.summary).toLowerCase().indexOf(q) < 0) return false;
+    if (st.deg !== "All" && s.degrees.indexOf(st.deg) < 0) return false;
+    if (st.country !== "All" && s.country !== st.country) return false;
+    var k = status(s);
+    if (st.status === "Open" && !(k === "open" || k === "soon" || k === "varies")) return false;
+    if (st.status === "Upcoming" && k !== "upcoming") return false;
+    if (st.status === "Closed" && k !== "closed") return false;
+    if (st.fund !== "All" && (s.fund || "Full") !== st.fund) return false;
+    if (st.saved && st.savedIds.indexOf(s.id) < 0) return false;
+    return true;
+  }
+
+  function li(a) { return a.map(function (x) { return "<li>" + x + "</li>"; }).join(""); }
+  function card(s) {
+    var k = status(s), lf = left(s), f = fit(s), saved = st.savedIds.indexOf(s.id) >= 0;
+    var h = '<article class="card" data-st="' + k + '">';
+    h += '<div class="top"><div><h3>' + s.name + '</h3><p class="where">' + s.country + " · " + s.degrees.join(", ") + "</p></div>";
+    h += '<button class="save" data-save="' + s.id + '" aria-pressed="' + saved + '" aria-label="' + (saved ? "Remove " : "Save ") + s.name + '"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button></div>';
+    h += '<div class="meta"><span class="pill p-' + k + '">' + LABEL[k] + '</span><span class="pill p-plain">' + (s.fund === "Partial" ? "Partial funding" : s.fund === "Need-based" ? "Need-based aid" : "Fully funded") + "</span>";
+    if (f) h += '<span class="pill f-' + f.l + '">' + FITLABEL[f.l] + "</span>";
+    h += "</div>";
+    h += '<div class="dl"><span class="lab">Deadline</span><span class="date">' + s.deadlineLabel + "</span>";
+    h += '<span class="left' + (lf.hot ? " hot" : "") + '">' + lf.t + "</span>";
+    if (k === "closed" && s.next) h += '<span class="nxt">' + s.next + "</span>";
+    h += "</div>";
+    var en = ENG[s.id];
+    if (en) h += '<div class="ielts"><span class="lab">IELTS</span><span>' + en.s + "</span></div>";
+    if (f) h += '<p class="fitline">' + f.t + "</p>";
+    h += '<details class="more" data-id="' + s.id + '"' + (st.open[s.id] ? " open" : "") + "><summary>Details</summary><div class=\"more-body\">";
+    h += "<p>" + s.summary + "</p>";
+    h += "<div><h4>Covers</h4><p>" + s.covers + "</p></div>";
+    h += "<div><h4>Eligibility</h4><ul>" + li(s.eligibility) + "</ul></div>";
+    h += "<div><h4>How to apply</h4><ul>" + li(s.apply) + "</ul></div>";
+    if (en) {
+      h += "<div><h4>English test</h4><p>" + en.d + "</p>";
+      if (en.l) h += '<p><a class="lnk" href="' + en.l[1] + '" target="_blank" rel="noopener">' + en.l[0] + "</a></p>";
+      h += "</div>";
+    }
+    var sites = SITES[s.id];
+    if (sites) {
+      h += '<div><h4>Official websites</h4><p class="sites">' + sites.map(function (x) { return '<a class="lnk" href="' + x[1] + '" target="_blank" rel="noopener">' + x[0] + "</a>"; }).join("") + "</p>";
+      h += '<p class="src">Links open in a new tab, so Jellyfish stays open here.</p></div>';
+    }
+    h += '<a class="go" href="' + s.link + '" target="_blank" rel="noopener">Official page</a>';
+    h += '<p class="src">Last checked 20 Oct 2026. ' + CONF[s.conf] + "</p>";
+    h += "</div></details></article>";
+    return h;
+  }
+
+  function renderNext() {
+    var c = DATA.filter(function (s) { var k = status(s); return k === "open" || k === "soon"; })
+      .sort(function (a, b) { return d(a.closes) - d(b.closes); })[0];
+    var el = document.getElementById("next");
+    if (!c) { el.innerHTML = '<span class="k">Next deadline</span><span class="v">Nothing open right now</span>'; return; }
+    var lf = left(c);
+    el.innerHTML = '<span class="k">Next to close</span><span class="v">' + c.name + '</span><span class="w">' + lf.t + "</span>";
+  }
+
+  function render() {
+    var rows = DATA.filter(matches).sort(function (a, b) { return rank(a) - rank(b) || sortKey(a) - sortKey(b); });
+    document.getElementById("count").textContent = rows.length + (rows.length === 1 ? " scholarship" : " scholarships");
+    document.getElementById("list").innerHTML = rows.length ? rows.map(card).join("") :
+      '<div class="empty">Nothing matches these filters. Try a different degree or country, or clear the search.</div>';
+  }
+
+  function chips(id, opts, key) {
+    var el = document.getElementById(id);
+    el.innerHTML = opts.map(function (o) { return '<button class="chip" data-k="' + key + '" data-v="' + o + '" aria-pressed="' + (st[key] === o) + '">' + o + "</button>"; }).join("");
+  }
+  function drawChips() { chips("degChips", ["All", B, M, P], "deg"); chips("stChips", ["All", "Open", "Upcoming", "Closed"], "status"); chips("fundChips", ["All", "Full", "Partial", "Need-based"], "fund"); }
+
+  var countries = ["All"]; DATA.forEach(function (s) { if (countries.indexOf(s.country) < 0) countries.push(s.country); });
+  document.getElementById("country").innerHTML = countries.map(function (c) { return '<option value="' + c + '">' + (c === "All" ? "All countries" : c) + "</option>"; }).join("");
+
+  document.addEventListener("click", function (e) {
+    var chip = e.target.closest(".chip[data-k]");
+    if (chip) { st[chip.dataset.k] = chip.dataset.v; drawChips(); render(); return; }
+    var sv = e.target.closest("[data-save]");
+    if (sv) {
+      var i = st.savedIds.indexOf(sv.dataset.save);
+      if (i >= 0) st.savedIds.splice(i, 1); else st.savedIds.push(sv.dataset.save);
+      persist(); render(); return;
+    }
+  });
+  document.getElementById("savedBtn").addEventListener("click", function () {
+    st.saved = !st.saved; this.setAttribute("aria-pressed", st.saved); render();
+  });
+  document.getElementById("q").addEventListener("input", function (e) { st.q = e.target.value; render(); });
+  document.getElementById("country").addEventListener("change", function (e) { st.country = e.target.value; render(); });
+  document.getElementById("list").addEventListener("toggle", function (e) {
+    var t = e.target; if (t.classList && t.classList.contains("more")) st.open[t.dataset.id] = t.open;
+  }, true);
+
+  function readProfile() {
+    var deg = document.getElementById("pDeg").value;
+    st.profile = { deg: deg, exp: parseFloat(document.getElementById("pExp").value), eng: parseFloat(document.getElementById("pEng").value), foreign: document.getElementById("pFor").checked };
+    if (deg !== "any") { st.deg = deg; drawChips(); }
+    document.getElementById("fitSum").textContent = "Fit badges are on";
+    render();
+  }
+  ["pDeg", "pExp", "pEng", "pFor"].forEach(function (id) { document.getElementById(id).addEventListener("change", readProfile); });
+
+  /* CGPA converter */
+  function row(l, v, t) { return '<div class="cg-row"><span class="lab">' + l + '</span><span class="v">' + v + '</span><span class="t">' + t + "</span></div>"; }
+  function renderCg() {
+    var out = document.getElementById("cgOut"), mode = document.getElementById("cgMode").value;
+    var raw = document.getElementById("cgVal").value, v = parseFloat(raw);
+    document.getElementById("cgVal").max = mode === "hsc" ? 5 : 4;
+    if (raw === "" || isNaN(v)) { out.innerHTML = '<p class="cg-hint">Enter a score to see the conversions.</p>'; return; }
+    var top = mode === "hsc" ? 5 : 4;
+    if (v < 0 || v > top) { out.innerHTML = '<p class="cg-hint err">This scale runs from 0 to ' + top.toFixed(2) + ". Check the number you typed.</p>"; return; }
+    var h = "";
+    if (mode === "hsc") {
+      var ladder = [[5.0, 90], [4.8, 85], [4.6, 80], [4.4, 75], [4.2, 70], [4.1, 65]], pct = null;
+      for (var i = 0; i < ladder.length; i++) { if (v >= ladder[i][0]) { pct = ladder[i][1]; break; } }
+      h += pct ? row("Australia", "about " + pct + "%", "RMIT's table for Bachelor's entry reads an HSC GPA of " + ladder.filter(function (x) { return x[1] === pct; })[0][0].toFixed(1) + " or higher as " + pct + "%. Other universities use their own tables.")
+                : row("Australia", "below 65%", "RMIT's table starts at an HSC GPA of 4.1, which it reads as 65%.");
+      h += row("Germany, UK", "n/a", "Those use your university CGPA. Switch the score type to convert it.");
+    } else {
+      if (v < 2) { h += row("Germany", "n/a", "Below the lowest passing CGPA of 2.00, so no German grade applies."); }
+      else {
+        var g = 1 + 3 * (4 - v) / 2, band = g <= 1.5 ? "Very good (sehr gut)" : g <= 2.5 ? "Good (gut)" : g <= 3.5 ? "Satisfactory (befriedigend)" : "Sufficient (ausreichend)";
+        h += row("Germany", g.toFixed(2), band + ". Modified Bavarian formula, where 1.0 is best and 4.0 is the lowest pass. It assumes your transcript shows 4.00 as best and 2.00 as the lowest pass.");
+      }
+      var uk = v >= 3.4 ? ["First-class level", "At or above the 3.4 that Edinburgh lists for first-class honours."]
+        : v >= 3.3 ? ["2:1 level", "Meets the 2:1 minimum at Nottingham (3.3) and Edinburgh (3.25)."]
+        : v >= 3.25 ? ["2:1 at some universities", "Meets Edinburgh's 2:1 mark (3.25) but is under Nottingham's 3.3."]
+        : v >= 3.2 ? ["About 2:2 level", "Matches the 2:2 mark at Nottingham (3.2). Many Master's courses ask for a 2:1."]
+        : ["Below typical minimums", "Under the Master's minimums these two universities publish. Others may differ."];
+      h += row("United Kingdom", uk[0], uk[1]);
+      h += row("USA, Canada", v.toFixed(2) + " / 4.0", "These use a 4.0 scale, so your CGPA is usually reported as it is. Some universities ask for a credential evaluation, which can change the figure.");
+      h += row("Australia", "varies", "Each university sets its own table. Use the HSC option for RMIT's Bachelor's table.");
+    }
+    out.innerHTML = h;
+  }
+  document.getElementById("cgVal").addEventListener("input", renderCg);
+  document.getElementById("cgMode").addEventListener("change", renderCg);
+
+  drawChips(); renderNext(); render(); renderCg();
+})();
+</script>
+
+</body>
+</html>
